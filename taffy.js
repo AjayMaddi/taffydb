@@ -38,6 +38,31 @@ var TAFFY, exports, T;
     isRegexp, sortArgs
     ;
     
+  // A helper function that removes suspicious or undesired properties.
+function sanitizeRecord(obj) {
+  var restrictedFields = ["__proto__", "constructor", "prototype"];
+
+  var allowedPropNameRegex = /^[A-Za-z0-9_]+$/;
+   
+
+  // Remove restricted keys and discard function values.
+  // You could add custom validation or type-checking here as needed.
+  TAFFY.eachin(obj, function (val, key) {
+    // Disallow certain property names entirely.
+    if (restrictedFields.indexOf(key) !== -1) {
+      delete obj[key];
+    }
+    // Remove any function-valued properties.
+    else if (typeof val === "function") {
+      delete obj[key];
+    }
+
+   
+    
+  });
+
+  return obj;
+}
     
   if ( ! TAFFY ){
     // TC = Counter for Taffy DBs on page, used for unique IDs
@@ -752,6 +777,8 @@ var TAFFY, exports, T;
             c = c( TAFFY.mergeObj( r, {} ) );
           }
         }
+         // Sanitize potential updates before applying them
+        c = sanitizeRecord(c);
         if ( TAFFY.isObject( c ) ){
           that.getDBI().update( r.___id, c, runEvent );
         }
@@ -1300,6 +1327,15 @@ var TAFFY, exports, T;
             input     = protectJSON( i )
             ;
           each( input, function ( v, i ) {
+             // NEW CODE START: Remove forged internal ID fields if present
+            if (v.___id) {
+              delete v.___id;
+            }
+            if (v.___s) {
+              delete v.___s;
+            }
+             // Sanitize the record to remove suspicious fields
+              v = sanitizeRecord(v);
             var nv, o;
             if ( T.isArray( v ) && i === 0 ){
               each( v, function ( av ) {
@@ -1329,7 +1365,7 @@ var TAFFY, exports, T;
               });
               v = o;
             }
-
+            sanitizeRecord(v);
             RC++;
             v.___id = 'T' + String( idpad + TC ).slice( -6 ) + 'R' +
               String( idpad + RC ).slice( -6 );
@@ -1371,6 +1407,13 @@ var TAFFY, exports, T;
           // ****************************************
 
           var nc = {}, or, nr, tc, hasChange;
+           if (changes.___id) {
+          delete changes.___id;
+        }
+        if (changes.___s) {
+          delete changes.___s;
+        }
+
           if ( settings.forcePropertyCase ){
             eachin( changes, function ( v, p ) {
               nc[(settings.forcePropertyCase === 'lower') ? p.toLowerCase()
